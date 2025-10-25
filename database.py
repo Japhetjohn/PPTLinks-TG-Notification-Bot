@@ -88,16 +88,48 @@ class Database:
             logger.error(f"Error adding user: {e}")
     
     def subscribe_user_to_course(self, chat_id: int, course_id: str) -> bool:
-        """Subscribe a user to a course"""
+        """Subscribe a user to a course
+
+        Returns:
+            True if this is a new subscription
+            False if user was already subscribed (active=1)
+        """
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
+
+                # Check if subscription exists
                 cursor.execute("""
-                    INSERT OR IGNORE INTO user_courses (chat_id, course_id)
-                    VALUES (?, ?)
+                    SELECT active FROM user_courses
+                    WHERE chat_id = ? AND course_id = ?
                 """, (chat_id, course_id))
-                conn.commit()
-                return cursor.rowcount > 0
+
+                row = cursor.fetchone()
+
+                if row is None:
+                    # New subscription - insert
+                    cursor.execute("""
+                        INSERT INTO user_courses (chat_id, course_id, active)
+                        VALUES (?, ?, 1)
+                    """, (chat_id, course_id))
+                    conn.commit()
+                    logger.info(f"New subscription created: user {chat_id}, course {course_id}")
+                    return True
+                elif row[0] == 0:
+                    # Reactivate inactive subscription
+                    cursor.execute("""
+                        UPDATE user_courses
+                        SET active = 1, subscribed_at = CURRENT_TIMESTAMP
+                        WHERE chat_id = ? AND course_id = ?
+                    """, (chat_id, course_id))
+                    conn.commit()
+                    logger.info(f"Reactivated subscription: user {chat_id}, course {course_id}")
+                    return True
+                else:
+                    # Already active
+                    logger.info(f"Already subscribed: user {chat_id}, course {course_id}")
+                    return False
+
         except Exception as e:
             logger.error(f"Error subscribing user to course: {e}")
             return False
@@ -257,3 +289,18 @@ class Database:
         except Exception as e:
             logger.error(f"Error getting active subscriptions: {e}")
             return []
+
+    def get_subscription_date(self, chat_id: int, course_id: str) -> Optional[str]:
+        """Get subscription date for a user-course pair"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT subscribed_at FROM user_courses
+                    WHERE chat_id = ? AND course_id = ? AND active = 1
+                """, (chat_id, course_id))
+                row = cursor.fetchone()
+                return row[0] if row else None
+        except Exception as e:
+            logger.error(f"Error getting subscription date: {e}")
+            return None
