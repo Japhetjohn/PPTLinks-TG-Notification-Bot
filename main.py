@@ -653,8 +653,7 @@ _Updated in real-time_ {Emoji.SPARKLES}
 
 *📱 Available Commands:*
 
-{Emoji.ROCKET} `/start` - Subscribe to default course
-{Emoji.ROCKET} `/start [course_id]` - Subscribe to specific course
+{Emoji.ROCKET} `/start <course_id>` - Subscribe to a course
 {Emoji.BOOK} `/mycourses` - View all your courses
 {Emoji.CHART} `/stats` - View learning statistics
 {Emoji.GEAR} `/settings` - Manage preferences
@@ -698,7 +697,7 @@ _Made with_ {Emoji.STAR} _for PPTLinks students_
 ━━━━━━━━━━━━━━━━━━━━━━━
 
 *Step 1: Subscribe to Courses* {Emoji.BOOK}
-Use `/start` or `/start [course_id]` to subscribe to your PPTLinks courses. You can subscribe to multiple courses!
+Click the subscription link you receive from PPTLinks when you enroll, or use `/start <course_id>` command. You can subscribe to multiple courses!
 
 *Step 2: Automatic Monitoring* {Emoji.CLOCK}
 The bot checks your courses every 10 minutes for:
@@ -732,21 +731,24 @@ Click the buttons in notifications to:
     @staticmethod
     def add_course_instructions():
         return f"""
-{Emoji.ROCKET} *Add a New Course*
+{Emoji.ROCKET} *Subscribe to Your Course*
 
 ━━━━━━━━━━━━━━━━━━━━━━━
 
-To subscribe to a course, you'll need the *Course ID*.
+{Emoji.INFO} *How to Subscribe:*
 
-*How to find your Course ID:*
+You should receive a unique subscription link from PPTLinks when you enroll in a course.
 
-1. Go to PPTLinks website
-2. Open your course
-3. Look at the URL:
-   `https://pptlinks.com/course/YOUR_COURSE_ID`
-4. Copy the Course ID
+The link looks like:
+`https://t.me/PPTLinksReminderBot?start=COURSE_ID`
 
-*Then use this command:*
+{Emoji.TARGET} *Just click that link* and you'll be automatically subscribed!
+
+━━━━━━━━━━━━━━━━━━━━━━━
+
+{Emoji.GEAR} *Alternative Method:*
+
+If you have your Course ID, use this command:
 `/start YOUR_COURSE_ID`
 
 *Example:*
@@ -754,8 +756,8 @@ To subscribe to a course, you'll need the *Course ID*.
 
 ━━━━━━━━━━━━━━━━━━━━━━━
 
-{Emoji.INFO} *Default Course:*
-Just type `/start` to subscribe to the default demo course!
+{Emoji.LIGHT} *Can't find your link?*
+Contact PPTLinks support or check your course enrollment page.
 
 ━━━━━━━━━━━━━━━━━━━━━━━
 """
@@ -1443,8 +1445,8 @@ You've been unsubscribed from this course.
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command - subscribe user to course
 
-    Usage: /start [course_id]
-    If no course_id provided, uses FIXED_COURSE_ID as default
+    Usage: /start <course_id>
+    Course ID MUST be provided via deep link from PPTLinks
     """
     chat_id = update.effective_chat.id
     user = update.effective_user
@@ -1454,20 +1456,27 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     existing_courses = db.get_user_courses(chat_id)
     is_first_time = len(existing_courses) == 0
 
-    # Get course ID from command args or use default
-    course_id = FIXED_COURSE_ID
-    if context.args and len(context.args) > 0:
-        course_id = context.args[0]
-        logger.info(f"User {chat_id} subscribing to course: {course_id}")
-
-    # If no args and first time, show welcome
-    if not context.args and is_first_time:
-        await update.message.reply_text(
-            Msg.welcome_first_time(),
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=Keyboards.welcome_menu()
-        )
+    # Course ID MUST be provided from deep link
+    if not context.args or len(context.args) == 0:
+        # No course ID provided - show instructions
+        if is_first_time:
+            await update.message.reply_text(
+                Msg.welcome_first_time(),
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=Keyboards.welcome_menu()
+            )
+        else:
+            # User has courses, show them instructions to add more
+            await update.message.reply_text(
+                Msg.add_course_instructions(),
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=Keyboards.main_menu()
+            )
         return
+
+    # Get course ID from URL parameter
+    course_id = context.args[0]
+    logger.info(f"User {chat_id} subscribing to course: {course_id}")
 
     # Send loading message
     loading_msg = await update.message.reply_text(
