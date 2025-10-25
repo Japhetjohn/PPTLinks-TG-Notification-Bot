@@ -31,8 +31,6 @@ BOT_TOKEN = "8126336145:AAH9ROvECWEA1Bo1J_xclwrYA0lYdhWiMNA"
 API_BASE = "https://api.pptlinks.com/api/v1"
 POLL_INTERVAL = 600  # 10 minutes
 
-FIXED_COURSE_ID = "686254fca0502cc2d68f5b89"  # Default course ID
-
 # ================================
 # LOGGING
 # ================================
@@ -87,11 +85,12 @@ class Emoji:
 # ================================
 class PPTLinksAPI:
     @staticmethod
-    def fetch_course_data(course_id: str = None) -> Optional[dict]:
-        """Fetch course data for a specific course ID"""
-        if not course_id:
-            course_id = FIXED_COURSE_ID
+    def fetch_course_data(course_id: str) -> Optional[dict]:
+        """Fetch course data for a specific course ID
 
+        Args:
+            course_id: The PPTLinks course ID (required)
+        """
         url = f"{API_BASE}/course/user-courses/{course_id}?brief=false&timeZone=Africa/Lagos"
         session = requests.Session()
         retry = Retry(total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
@@ -752,7 +751,7 @@ If you have your Course ID, use this command:
 `/start YOUR_COURSE_ID`
 
 *Example:*
-`/start 686254fca0502cc2d68f5b89`
+`/start abc123xyz456def789`
 
 ━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -853,11 +852,13 @@ class Monitor:
     def __init__(self, app):
         self.app = app
 
-    async def check(self, chat_id: int, course_id: str = None):
-        """Check for course updates and send notifications"""
-        if not course_id:
-            course_id = FIXED_COURSE_ID
+    async def check(self, chat_id: int, course_id: str):
+        """Check for course updates and send notifications
 
+        Args:
+            chat_id: User's Telegram chat ID
+            course_id: The PPTLinks course ID (required)
+        """
         data = PPTLinksAPI.fetch_course_data(course_id)
         if not data:
             logger.warning(f"Failed to fetch course data for user {chat_id}, course {course_id}")
@@ -1630,7 +1631,7 @@ def main():
 
     logger.info("=" * 50)
     logger.info(f"{Emoji.ROCKET} PPTLinks Notification Bot Starting...")
-    logger.info(f"{Emoji.BOOK} Default Course ID: {FIXED_COURSE_ID}")
+    logger.info(f"{Emoji.INFO} Dynamic course subscription via deep links")
     logger.info(f"{Emoji.INFO} Supports multiple courses per user")
     logger.info(f"{Emoji.CLOCK} Check Interval: {POLL_INTERVAL}s")
     logger.info("=" * 50)
